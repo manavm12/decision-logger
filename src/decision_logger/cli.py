@@ -164,6 +164,96 @@ def generate(config, branch):
 
 @cli.command()
 @click.option('--config', default='.decision-log/config.json', help='Config file path')
+@click.option('--branch', help='Branch to analyze (default: current branch)')
+def stats(config, branch):
+    """Show timeline statistics without calling OpenAI"""
+    config_path = Path(config)
+    config_obj = DecisionLogConfig.load(config_path)
+
+    if branch:
+        config_obj.current_branch = branch
+
+    git_collector = GitCollector(config_obj)
+    shell_collector = ShellCollector(config_obj)
+    claude_collector = ClaudeCollector(config_obj)
+
+    if not git_collector.is_available():
+        click.echo("Error: Not a git repository", err=True)
+        sys.exit(1)
+
+    git_events = git_collector.collect() if git_collector.is_available() else []
+    shell_events = shell_collector.collect() if shell_collector.is_available() else []
+    claude_events = claude_collector.collect() if claude_collector.is_available() else []
+
+    timeline_builder = TimelineBuilder(config_obj)
+    timeline = timeline_builder.merge_events(git_events, shell_events, claude_events)
+
+    branch_name = config_obj.current_branch or git_collector.get_current_branch() or "current"
+
+    click.echo(f"\nDecision Logger Stats — {branch_name}")
+    click.echo("=" * 50)
+
+    # Totals
+    click.echo(f"\nSignal sources:")
+    click.echo(f"  Git commits   : {len(git_events)}")
+    click.echo(f"  Shell commands: {len(shell_events)}")
+    click.echo(f"  AI messages   : {len(claude_events)}")
+    click.echo(f"  Total events  : {len(timeline)}")
+
+    # Time range
+    timestamped = [e for e in timeline if e.timestamp]
+    if timestamped:
+        earliest = min(e.timestamp for e in timestamped)
+        latest = max(e.timestamp for e in timestamped)
+        click.echo(f"\nTime range:")
+        click.echo(f"  From : {earliest.strftime('%Y-%m-%d %H:%M:%S')}")
+        click.echo(f"  To   : {latest.strftime('%Y-%m-%d %H:%M:%S')}")
+        delta = latest - earliest
+        hours = int(delta.total_seconds() // 3600)
+        minutes = int((delta.total_seconds() % 3600) // 60)
+        click.echo(f"  Span : {hours}h {minutes}m")
+
+    # Git commits
+    if git_events:
+        click.echo(f"\nCommits ({len(git_events)}):")
+        for e in git_events:
+            short_hash = e.commit_hash[:7] if e.commit_hash else "?"
+            click.echo(f"  {short_hash}  {e.commit_message}")
+
+        all_files = []
+        for e in git_events:
+            all_files.extend(e.files_changed)
+        if all_files:
+            from collections import Counter
+            top_files = Counter(all_files).most_common(5)
+            click.echo(f"\nMost changed files:")
+            for f, count in top_files:
+                click.echo(f"  {count}x  {f}")
+
+    # Shell commands
+    if shell_events:
+        from collections import Counter
+        prefixes = [e.command.split()[0] for e in shell_events if e.command.strip()]
+        top_cmds = Counter(prefixes).most_common(8)
+        click.echo(f"\nTop shell commands:")
+        for cmd, count in top_cmds:
+            click.echo(f"  {count:3}x  {cmd}")
+
+    # Claude sessions
+    if claude_events:
+        sessions = {e.session_id for e in claude_events if hasattr(e, 'session_id') and e.session_id}
+        user_msgs = sum(1 for e in claude_events if hasattr(e, 'role') and e.role == 'user')
+        asst_msgs = sum(1 for e in claude_events if hasattr(e, 'role') and e.role == 'assistant')
+        click.echo(f"\nClaude activity:")
+        click.echo(f"  Sessions  : {len(sessions)}")
+        click.echo(f"  User msgs : {user_msgs}")
+        click.echo(f"  Asst msgs : {asst_msgs}")
+
+    click.echo()
+
+
+@cli.command()
+@click.option('--config', default='.decision-log/config.json', help='Config file path')
 @click.argument('branch')
 def summary(config, branch):
     """Print short PR summary to stdout"""
