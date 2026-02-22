@@ -203,12 +203,15 @@ def stats(config, branch):
     # Time range
     timestamped = [e for e in timeline if e.timestamp]
     if timestamped:
-        earliest = min(e.timestamp for e in timestamped)
-        latest = max(e.timestamp for e in timestamped)
+        def _naive(ts):
+            return ts.replace(tzinfo=None) if ts.tzinfo else ts
+
+        earliest = min(timestamped, key=lambda e: _naive(e.timestamp)).timestamp
+        latest = max(timestamped, key=lambda e: _naive(e.timestamp)).timestamp
         click.echo(f"\nTime range:")
         click.echo(f"  From : {earliest.strftime('%Y-%m-%d %H:%M:%S')}")
         click.echo(f"  To   : {latest.strftime('%Y-%m-%d %H:%M:%S')}")
-        delta = latest - earliest
+        delta = _naive(latest) - _naive(earliest)
         hours = int(delta.total_seconds() // 3600)
         minutes = int((delta.total_seconds() % 3600) // 60)
         click.echo(f"  Span : {hours}h {minutes}m")
