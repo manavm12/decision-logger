@@ -31,8 +31,14 @@ class TimelineBuilder:
                 else:
                     events_without_timestamp.append(event)
 
-        # Sort by timestamp
-        sorted_events = sorted(all_events, key=lambda e: e.timestamp)
+        # Sort by timestamp — normalize tz-aware to naive UTC so they compare cleanly
+        def _sort_key(e):
+            ts = e.timestamp
+            if ts.tzinfo is not None:
+                ts = ts.replace(tzinfo=None)
+            return ts
+
+        sorted_events = sorted(all_events, key=_sort_key)
 
         # Add events without timestamps at the end
         sorted_events.extend(events_without_timestamp)
