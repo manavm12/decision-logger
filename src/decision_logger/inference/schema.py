@@ -29,7 +29,7 @@ DECISION_LOG_SCHEMA = {
                     },
                     "learnings": {"type": "string"}
                 },
-                "required": ["description", "outcome", "evidence"],
+                "required": ["description", "outcome", "evidence", "learnings"],
                 "additionalProperties": False
             }
         },
@@ -43,7 +43,7 @@ DECISION_LOG_SCHEMA = {
                     "items": {"type": "string"}
                 }
             },
-            "required": ["description", "evidence"],
+            "required": ["description", "how_it_works", "evidence"],
             "additionalProperties": False
         },
         "rationale_and_tradeoffs": {
@@ -67,7 +67,7 @@ DECISION_LOG_SCHEMA = {
                     }
                 }
             },
-            "required": ["why_chosen"],
+            "required": ["why_chosen", "alternatives_considered", "tradeoffs"],
             "additionalProperties": False
         },
         "risks_and_followups": {
@@ -86,15 +86,17 @@ DECISION_LOG_SCHEMA = {
                     "items": {"type": "string"}
                 }
             },
-            "required": [],
+            "required": ["risks", "followups", "technical_debt"],
             "additionalProperties": False
         }
     },
     "required": [
         "problem_statement",
+        "initial_context",
         "attempts",
         "final_solution",
-        "rationale_and_tradeoffs"
+        "rationale_and_tradeoffs",
+        "risks_and_followups"
     ],
     "additionalProperties": False
 }

@@ -5,6 +5,9 @@ from pathlib import Path
 from typing import Optional, List
 import json
 import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 
 @dataclass
